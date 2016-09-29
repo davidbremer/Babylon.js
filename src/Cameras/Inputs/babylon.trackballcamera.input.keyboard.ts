@@ -95,7 +95,7 @@ module BABYLON {
 
                 for (var index = 0; index < this._keys.length; index++) {
                     var keyCode = this._keys[index];
-                    if (this.keysLeft.indexOf(keyCode) !== -1) {
+                    /*if (this.keysLeft.indexOf(keyCode) !== -1) {
                         camera.inertialAlphaOffset -= 0.01;
                     } else if (this.keysUp.indexOf(keyCode) !== -1) {
                         camera.inertialBetaOffset -= 0.01;
@@ -103,7 +103,7 @@ module BABYLON {
                         camera.inertialAlphaOffset += 0.01;
                     } else if (this.keysDown.indexOf(keyCode) !== -1) {
                         camera.inertialBetaOffset += 0.01;
-                    }
+                    }*/
                 }
             }
         }

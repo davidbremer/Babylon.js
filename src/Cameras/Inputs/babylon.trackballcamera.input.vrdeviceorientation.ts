@@ -39,8 +39,8 @@ module BABYLON {
                     this._gamma = 180 + this._gamma;
                 }
 
-                this.camera.alpha = (-this._alpha / 180.0 * Math.PI) % Math.PI * 2;
-                this.camera.beta = (this._gamma / 180.0 * Math.PI);
+                //this.camera.alpha = (-this._alpha / 180.0 * Math.PI) % Math.PI * 2;
+                //this.camera.beta = (this._gamma / 180.0 * Math.PI);
             }
         }
 

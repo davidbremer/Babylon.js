@@ -1,23 +1,35 @@
+function PrintDebug(s) {
+    var elem = document.getElementById("DaveDebug");
+    elem.innerHTML = "<p>"+s+"</p>";
+}
+
+
+
 module BABYLON {
     var eventPrefix = Tools.GetPointerPrefix();
 
     export class TrackballCameraPointersInput implements ICameraInput<TrackballCamera> {
         camera: TrackballCamera;
 
-        @serialize()
-        public angularSensibilityX = 1000.0;
+        //@serialize()
+        //public angularSensibilityX = 1000.0;
 
-        @serialize()
-        public angularSensibilityY = 1000.0;
+        //@serialize()
+        //public angularSensibilityY = 1000.0;
 
-        @serialize()
-        public pinchPrecision = 6.0;
+        //@serialize()
+        //public pinchPrecision = 6.0;
 
-        @serialize()
-        public panningSensibility: number = 50.0;
+        //@serialize()
+        //public panningSensibility: number = 50.0;
 
-        private _isPanClick: boolean = false;
-        public pinchInwards = true;
+        private _isRotating: boolean = false;
+        private _isPanning:  boolean = false;
+        private _isZooming:  boolean = false;
+
+        private _prevX: number = undefined;
+        private _prevY: number = undefined;
+        //public pinchInwards = true;
 
         private _pointerInput: (p: PointerInfo, s: EventState) => void;
         private _observer: Observer<PointerInfo>;
@@ -32,9 +44,9 @@ module BABYLON {
 
         public attachControl(element: HTMLElement, noPreventDefault?: boolean) {
             var engine = this.camera.getEngine();
-            var cacheSoloPointer: { x: number, y: number, pointerId: number, type: any }; // cache pointer object for better perf on camera rotation
-            var pointA: { x: number, y: number, pointerId: number, type: any }, pointB: { x: number, y: number, pointerId: number, type: any };
-            var previousPinchDistance = 0;
+            //var cacheSoloPointer: { x: number, y: number, pointerId: number, type: any }; // cache pointer object for better perf on camera rotation
+            //var pointA: { x: number, y: number, pointerId: number, type: any }; //, pointB: { x: number, y: number, pointerId: number, type: any };
+            //var previousPinchDistance = 0;
 
             this._pointerInput = (p, s) => {
                 var evt = <PointerEvent>p.event;
@@ -47,16 +59,21 @@ module BABYLON {
 
 
                     // Manage panning with pan button click
-                    this._isPanClick = evt.button === this.camera._panningMouseButton;
+                    //this._isPanClick = evt.button === this.camera._panningMouseButton;
+
+                    this._isPanning = true;
+                    this._prevX = evt.clientX;
+                    this._prevY = evt.clientY;
+                    
 
                     // manage pointers
-                    cacheSoloPointer = { x: evt.clientX, y: evt.clientY, pointerId: evt.pointerId, type: evt.pointerType };
-                    if (pointA === undefined) {
-                        pointA = cacheSoloPointer;
-                    }
-                    else if (pointB === undefined) {
-                        pointB = cacheSoloPointer;
-                    }
+                    //cacheSoloPointer = { x: evt.clientX, y: evt.clientY, pointerId: evt.pointerId, type: evt.pointerType };
+                    //if (pointA === undefined) {
+                    //    pointA = cacheSoloPointer;
+                    //}
+                    //else if (pointB === undefined) {
+                    //    pointB = cacheSoloPointer;
+                    //}
                     if (!noPreventDefault) {
                         evt.preventDefault();
                         element.focus();
@@ -68,14 +85,18 @@ module BABYLON {
                         //Nothing to do with the error.
                     }
 
-                    cacheSoloPointer = null;
-                    previousPinchDistance = 0;
+                    //cacheSoloPointer = null;
+                    //previousPinchDistance = 0;
 
                     //would be better to use pointers.remove(evt.pointerId) for multitouch gestures, 
                     //but emptying completly pointers collection is required to fix a bug on iPhone : 
                     //when changing orientation while pinching camera, one pointer stay pressed forever if we don't release all pointers  
                     //will be ok to put back pointers.remove(evt.pointerId); when iPhone bug corrected
-                    pointA = pointB = undefined;
+                    this._prevX = undefined;
+                    this._prevY = undefined;
+                    this._isRotating = false;
+                    this._isPanning  = false;
+                    this._isZooming  = false;
 
                     if (!noPreventDefault) {
                         evt.preventDefault();
@@ -86,8 +107,33 @@ module BABYLON {
                     }
 
                     // One button down
-                    if (pointA && pointB === undefined) {
-                        if (this.panningSensibility !== 0 &&
+                    //if (pointA && pointB === undefined) {
+                    if (this._isRotating || this._isPanning || this._isZooming) {   
+                        if (this._isRotating) {
+
+
+                        } else if (this._isPanning) {
+                            // Intersect rays with a plane through the target point, 
+                            //var prevDistW = (2.0 * this._prevPointA.x / engine.getRenderWidth() - 1.0) * this.camera._getScreenWidth();
+                            //var prevDistH = (2.0 * this._prevPointA.y / engine.getRenderHeight() - 1.0) * this.camera._getScreenHeight();
+
+                            //var curDistW = (2.0 * evt.clientX / engine.getRenderWidth() - 1.0) * this.camera._getScreenWidth();
+                            //var curDistH = (2.0 * evt.clientY / engine.getRenderHeight() - 1.0) * this.camera._getScreenHeight();
+                            PrintDebug(evt.clientX.toString(10) + ", " + evt.clientY.toString(10));
+                            var rightVec = Vector3.Cross(this.camera.upVector, this.camera.position.subtract(this.camera.target)).normalize();
+
+                            //var newPoint = this.camera.target.add( rightVec.scale(prevDistW) ).add( this.camera.upVector.scale(prevDistH) );
+                            var offset = rightVec.scale(                   ((evt.clientX - this._prevX) / engine.getRenderWidth())  * 2.0 * this.camera._getScreenWidth()  ); 
+                            offset.addInPlace( this.camera.upVector.scale( ((evt.clientY - this._prevY) / engine.getRenderHeight()) * 2.0 * this.camera._getScreenHeight() ) );
+
+                            this.camera.position.addInPlace(offset);
+                            this.camera.target.addInPlace(offset);
+
+                        } else if (this._isZooming) {
+
+
+                        }
+                        /*if (this.panningSensibility !== 0 &&
                             ((evt.ctrlKey && this.camera._useCtrlForPanning) ||
                                 (!this.camera._useCtrlForPanning && this._isPanClick))) {
                             this.camera
@@ -99,14 +145,17 @@ module BABYLON {
                             var offsetY = evt.clientY - cacheSoloPointer.y;
                             this.camera.inertialAlphaOffset -= offsetX / this.angularSensibilityX;
                             this.camera.inertialBetaOffset -= offsetY / this.angularSensibilityY;
-                        }
+                        }*/
 
-                        cacheSoloPointer.x = evt.clientX;
-                        cacheSoloPointer.y = evt.clientY;
+                        //cacheSoloPointer.x = evt.clientX;
+                        //cacheSoloPointer.y = evt.clientY;
+
+                        this._prevX = evt.clientX;
+                        this._prevY = evt.clientY;
                     }
 
                     // Two buttons down: pinch
-                    else if (pointA && pointB) {
+                    /*else if (pointA && pointB) {
                         //if (noPreventDefault) { evt.preventDefault(); } //if pinch gesture, could be useful to force preventDefault to avoid html page scroll/zoom in some mobile browsers
                         var ed = (pointA.pointerId === evt.pointerId) ? pointA : pointB;
                         ed.x = evt.clientX;
@@ -128,7 +177,7 @@ module BABYLON {
                                     direction);
                             previousPinchDistance = pinchSquaredDistance;
                         }
-                    }
+                    }*/
                 }
             }
 
@@ -144,9 +193,9 @@ module BABYLON {
 
             this._onLostFocus = () => {
                 //this._keys = [];
-                pointA = pointB = undefined;
-                previousPinchDistance = 0;
-                cacheSoloPointer = null;
+                //pointA = pointB = undefined;
+                //previousPinchDistance = 0;
+                //cacheSoloPointer = null;
             };
 
             this._onMouseMove = evt => {
@@ -156,9 +205,6 @@ module BABYLON {
 
                 var offsetX = evt.movementX || evt.mozMovementX || evt.webkitMovementX || evt.msMovementX || 0;
                 var offsetY = evt.movementY || evt.mozMovementY || evt.webkitMovementY || evt.msMovementY || 0;
-
-                this.camera.inertialAlphaOffset -= offsetX / this.angularSensibilityX;
-                this.camera.inertialBetaOffset -= offsetY / this.angularSensibilityY;
 
                 if (!noPreventDefault) {
                     evt.preventDefault();
@@ -179,8 +225,6 @@ module BABYLON {
             };
 
             this._onGesture = e => {
-                this.camera.radius *= e.scale;
-
 
                 if (e.preventDefault) {
                     if (!noPreventDefault) {
@@ -215,8 +259,11 @@ module BABYLON {
                 element.removeEventListener("keydown", this._onKeyDown);
                 element.removeEventListener("keyup", this._onKeyUp);
 
-                this._isPanClick = false;
-                this.pinchInwards = true;
+                this._prevX = undefined;
+                this._prevY = undefined;
+                this._isRotating = false;
+                this._isPanning  = false;
+                this._isZooming  = false;
 
                 this._onKeyDown = null;
                 this._onKeyUp = null;
@@ -244,3 +291,5 @@ module BABYLON {
 
     CameraInputTypes["TrackballCameraPointersInput"] = TrackballCameraPointersInput;
 }
+
+

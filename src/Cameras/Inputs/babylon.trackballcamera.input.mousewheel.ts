@@ -20,8 +20,8 @@ module BABYLON {
                     delta = -event.detail / this.wheelPrecision;
                 }
 
-                if (delta)
-                    this.camera.inertialRadiusOffset += delta;
+                //if (delta)
+                //    this.camera.inertialRadiusOffset += delta;
 
                 if (event.preventDefault) {
                     if (!noPreventDefault) {
