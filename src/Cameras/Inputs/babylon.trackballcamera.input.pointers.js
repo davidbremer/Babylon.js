@@ -1,6 +1,7 @@
 function PrintDebug(s) {
     var elem = document.getElementById("DaveDebug");
-    elem.innerHTML = "<p>" + s + "</p>";
+    if (elem)
+        elem.innerHTML = "<p>" + s + "</p>";
 }
 var BABYLON;
 (function (BABYLON) {
@@ -55,10 +56,10 @@ var BABYLON;
                     else if (evt.button == 2) {
                         _this._isZooming = true;
                     }
-                    _this._prevX = evt.clientX;
-                    _this._prevY = evt.clientY;
+                    _this._prevX = evt.offsetX;
+                    _this._prevY = evt.offsetY;
                     // manage pointers
-                    //cacheSoloPointer = { x: evt.clientX, y: evt.clientY, pointerId: evt.pointerId, type: evt.pointerType };
+                    //cacheSoloPointer = { x: evt.offsetX, y: evt.offsetY, pointerId: evt.pointerId, type: evt.pointerType };
                     //if (pointA === undefined) {
                     //    pointA = cacheSoloPointer;
                     //}
@@ -106,8 +107,8 @@ var BABYLON;
                             var rightVec = BABYLON.Vector3.Cross(_this.camera.position.subtract(_this.camera.target), _this.camera.upVector).normalize();
                             var prevDistW = (2.0 * _this._prevX / engine.getRenderWidth() - 1.0) * _this.camera._getWorldSpaceWidth();
                             var prevDistH = (-2.0 * _this._prevY / engine.getRenderHeight() + 1.0) * _this.camera._getWorldSpaceHeight();
-                            var curDistW = (2.0 * evt.clientX / engine.getRenderWidth() - 1.0) * _this.camera._getWorldSpaceWidth();
-                            var curDistH = (-2.0 * evt.clientY / engine.getRenderHeight() + 1.0) * _this.camera._getWorldSpaceHeight();
+                            var curDistW = (2.0 * evt.offsetX / engine.getRenderWidth() - 1.0) * _this.camera._getWorldSpaceWidth();
+                            var curDistH = (-2.0 * evt.offsetY / engine.getRenderHeight() + 1.0) * _this.camera._getWorldSpaceHeight();
                             var rayPrev = _this.camera.target.add(rightVec.scale(prevDistW)).add(_this.camera.upVector.scale(prevDistH));
                             var rayCur = _this.camera.target.add(rightVec.scale(curDistW)).add(_this.camera.upVector.scale(curDistH));
                             //This approach shoots rays from the eye to the sphere.  The problem is, the edge of the sphere
@@ -125,7 +126,7 @@ var BABYLON;
                             var rayDir = _this.camera.target.subtract(_this.camera.position).normalize();
                             var tPrev = _this._intersectSphere(rayPrev, rayDir, radius);
                             var tCur = _this._intersectSphere(rayCur, rayDir, radius);
-                            PrintDebug("Radius " + radius.toString(10) + " Dist " + tCur.toString(10));
+                            //PrintDebug("Radius " + radius.toString(10) + " Dist " + tCur.toString(10));
                             // Vectors from target to picked points
                             var vPrev = rayPrev.add(rayDir.scale(tPrev)).subtract(_this.camera.target).normalize();
                             var vCur = rayCur.add(rayDir.scale(tCur)).subtract(_this.camera.target).normalize();
@@ -152,10 +153,10 @@ var BABYLON;
                         }
                         else if (_this._isPanning) {
                             // Intersect rays with a plane through the target point, 
-                            //PrintDebug(evt.clientX.toString(10) + ", " + evt.clientY.toString(10));
+                            //PrintDebug(evt.offsetX.toString(10) + ", " + evt.offsetY.toString(10));
                             var rightVec = BABYLON.Vector3.Cross(_this.camera.upVector, _this.camera.position.subtract(_this.camera.target)).normalize();
-                            var xdist = ((evt.clientX - _this._prevX) / engine.getRenderWidth()) * 2.0 * _this.camera._getWorldSpaceWidth();
-                            var ydist = ((evt.clientY - _this._prevY) / engine.getRenderHeight()) * 2.0 * _this.camera._getWorldSpaceHeight();
+                            var xdist = ((evt.offsetX - _this._prevX) / engine.getRenderWidth()) * 2.0 * _this.camera._getWorldSpaceWidth();
+                            var ydist = ((evt.offsetY - _this._prevY) / engine.getRenderHeight()) * 2.0 * _this.camera._getWorldSpaceHeight();
                             var offset = rightVec.scale(xdist);
                             offset.addInPlace(_this.camera.upVector.scale(ydist));
                             _this.camera.position.addInPlace(offset);
@@ -166,11 +167,12 @@ var BABYLON;
                             // This means dragging from bottom to top will move the camera 'zoomFactor' farther away
                             // Dragging top to bottom will move the camera closer by 1/zoomFactor 
                             var zoomPerPixel = Math.pow(_this.camera.zoomFactor, (1.0 / engine.getRenderHeight()));
-                            var zoomAmount = Math.pow(zoomPerPixel, (_this._prevY - evt.clientY));
+                            var zoomAmount = Math.pow(zoomPerPixel, (_this._prevY - evt.offsetY));
                             _this.camera.position = _this.camera.target.add(_this.camera.position.subtract(_this.camera.target).scale(zoomAmount));
                         }
-                        _this._prevX = evt.clientX;
-                        _this._prevY = evt.clientY;
+                        _this._prevX = evt.offsetX;
+                        _this._prevY = evt.offsetY;
+                        _this.camera.updateClipPlanes();
                     }
                 }
             };
@@ -178,15 +180,14 @@ var BABYLON;
             this._onContextMenu = function (evt) {
                 evt.preventDefault();
             };
-            if (!this.camera._useCtrlForPanning) {
-                element.addEventListener("contextmenu", this._onContextMenu, false);
-            }
             this._onLostFocus = function () {
                 //this._keys = [];
                 //pointA = pointB = undefined;
                 //previousPinchDistance = 0;
                 //cacheSoloPointer = null;
             };
+            //TODO: Do this optionally, only if the right-button is mapped to an operation.
+            element.addEventListener("contextmenu", this._onContextMenu, false);
             this._onMouseMove = function (evt) {
                 if (!engine.isPointerLock) {
                     return;
