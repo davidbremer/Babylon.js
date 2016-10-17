@@ -7,10 +7,6 @@ var BABYLON;
 (function (BABYLON) {
     var TrackballCamera = (function (_super) {
         __extends(TrackballCamera, _super);
-        // Panning
-        //public panningAxis: Vector3 = new Vector3(1, 1, 0);
-        //private _localDirection: Vector3;
-        //private _transformedDirection: Vector3;
         function TrackballCamera(name, position, target, upVector, scene) {
             _super.call(this, name, position, scene);
             //-- end properties for backward compatibility for inputs        
@@ -22,20 +18,25 @@ var BABYLON;
                 this.position = new BABYLON.Vector3(0, 0, -1);
             }
             else {
-                this.position = position;
+                this.position = new BABYLON.Vector3(position.x, position.y, position.z);
             }
             if (!target) {
-                this.target = BABYLON.Vector3.Zero();
+                this.target = new BABYLON.Vector3(0, 0, 0);
             }
             else {
-                this.target = target;
+                this.target = new BABYLON.Vector3(target.x, target.y, target.z);
             }
             if (!upVector) {
-                this.upVector = BABYLON.Vector3.Up();
+                this.upVector = new BABYLON.Vector3(0, 1, 0);
             }
             else {
-                this.upVector = upVector;
+                this.upVector = new BABYLON.Vector3(upVector.x, upVector.y, upVector.z);
             }
+            this.bboxMin = new BABYLON.Vector3(Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE);
+            this.bboxMax = new BABYLON.Vector3(-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE);
+            this.defaultPosition = new BABYLON.Vector3(this.position.x, this.position.y, this.position.z);
+            this.defaultTarget = new BABYLON.Vector3(this.target.x, this.target.y, this.target.z);
+            this.defaultUpVector = new BABYLON.Vector3(this.upVector.x, this.upVector.y, this.upVector.z);
             this.getViewMatrix();
             this.inputs = new BABYLON.TrackballCameraInputsManager(this);
             //this.inputs.addKeyboard().addMouseWheel().addPointers().addGamepad();
@@ -111,6 +112,16 @@ var BABYLON;
             enumerable: true,
             configurable: true
         });
+        TrackballCamera.prototype.setDefault = function (position, target, upVector) {
+            this.defaultPosition.copyFrom(position);
+            this.defaultTarget.copyFrom(target);
+            this.defaultUpVector.copyFrom(upVector);
+        };
+        TrackballCamera.prototype.resetToDefault = function () {
+            this.position.copyFrom(this.defaultPosition);
+            this.target.copyFrom(this.defaultTarget);
+            this.upVector.copyFrom(this.defaultUpVector);
+        };
         // Cache
         TrackballCamera.prototype._initCache = function () {
             _super.prototype._initCache.call(this);
@@ -120,17 +131,10 @@ var BABYLON;
             if (!ignoreParentClass) {
                 _super.prototype._updateCache.call(this);
             }
-            this._cache.target.copyFrom(this._getTargetPosition());
-        };
-        TrackballCamera.prototype._getTargetPosition = function () {
-            return this.target;
+            this._cache.target.copyFrom(this.target);
         };
         // Methods
-        TrackballCamera.prototype.attachControl = function (element, noPreventDefault, useCtrlForPanning, panningMouseButton) {
-            if (useCtrlForPanning === void 0) { useCtrlForPanning = true; }
-            if (panningMouseButton === void 0) { panningMouseButton = 2; }
-            this._useCtrlForPanning = useCtrlForPanning;
-            this._panningMouseButton = panningMouseButton;
+        TrackballCamera.prototype.attachControl = function (element, noPreventDefault) {
             this.inputs.attachElement(element, noPreventDefault);
         };
         TrackballCamera.prototype.detachControl = function (element) {
@@ -152,12 +156,73 @@ var BABYLON;
                 return;
             }
             this.position.copyFrom(position);
+            this.updateClipPlanes();
         };
         TrackballCamera.prototype.setTarget = function (target) {
             if (this.target.equals(target)) {
                 return;
             }
             this.target.copyFrom(target);
+            this.updateClipPlanes();
+        };
+        TrackballCamera.prototype.setUpVector = function (upVector) {
+            if (this.upVector.equals(upVector)) {
+                return;
+            }
+            this.upVector.copyFrom(upVector);
+        };
+        //Directly set the bounds
+        TrackballCamera.prototype.setBoundingBox = function (bboxMin, bboxMax) {
+            if (this.bboxMin.equals(bboxMin) && this.bboxMax.equals(bboxMax)) {
+                return;
+            }
+            this.bboxMin.copyFrom(bboxMin);
+            this.bboxMax.copyFrom(bboxMax);
+        };
+        TrackballCamera.prototype.resetBoundingBox = function () {
+            this.bboxMin = new BABYLON.Vector3(Number.MAX_VALUE, Number.MAX_VALUE, Number.MAX_VALUE);
+            this.bboxMax = new BABYLON.Vector3(-Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE);
+        };
+        //Expand bounding box to enclose points
+        TrackballCamera.prototype.expandBoundingBox = function (bboxMin, bboxMax) {
+            if (this.bboxMin.x > bboxMin.x)
+                this.bboxMin.x = bboxMin.x;
+            if (this.bboxMin.y > bboxMin.y)
+                this.bboxMin.y = bboxMin.y;
+            if (this.bboxMin.z > bboxMin.z)
+                this.bboxMin.z = bboxMin.z;
+            if (this.bboxMax.x < bboxMax.x)
+                this.bboxMax.x = bboxMax.x;
+            if (this.bboxMax.y < bboxMax.y)
+                this.bboxMax.y = bboxMax.y;
+            if (this.bboxMax.z < bboxMax.z)
+                this.bboxMax.z = bboxMax.z;
+        };
+        //Recompute minZ and maxZ
+        TrackballCamera.prototype.updateClipPlanes = function () {
+            if (this.bboxMin.x > this.bboxMax.x ||
+                this.bboxMin.y > this.bboxMax.y ||
+                this.bboxMin.z > this.bboxMax.z) {
+                //No bounds are set, so choose arbitrary minZ/maxZ 
+                this.minZ = 0.1;
+                this.maxZ = 1.0;
+                return;
+            }
+            var bboxRadius = BABYLON.Vector3.Distance(this.bboxMin, this.bboxMax) / 2.0;
+            var vecToBBox = BABYLON.Vector3.Center(this.bboxMin, this.bboxMax).subtract(this.position);
+            var vecToTarget = this.target.subtract(this.position).normalize();
+            var distToBBox = BABYLON.Vector3.Dot(vecToBBox, vecToTarget);
+            this.maxZ = distToBBox + bboxRadius;
+            if (this.maxZ <= 0.0) {
+                //All geometry is behind viewer, choose arbitrary minZ/maxZ
+                this.minZ = 0.1;
+                this.maxZ = 1.0;
+                return;
+            }
+            this.minZ = distToBBox - bboxRadius;
+            if (this.minZ < this.maxZ * 0.001) {
+                this.minZ = this.maxZ * 0.001;
+            }
         };
         TrackballCamera.prototype._getViewMatrix = function () {
             if (this.getScene().useRightHandedSystem) {
